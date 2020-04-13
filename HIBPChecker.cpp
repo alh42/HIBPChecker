@@ -9,7 +9,7 @@
 
 #include <iostream>
 
-#define PASSWORD_TO_CHECK "passeqwqwwweqwewword"
+#define PASSWORD_TO_CHECK "password"
 #define PASSWORD_FILE "pwned-passwords-sha1-ordered-by-hash-v5.txt"
 
 const SIZE_T MapRegionSize = 128 * 1024 * 1024;
@@ -43,13 +43,16 @@ CHAR* CreateHash(CONST CHAR* data, SIZE_T dataLength)
   DWORD hashLength = 0;
   stat = BCryptGetProperty(algHandle, BCRYPT_HASH_LENGTH, (UCHAR*)&hashLength, sizeof(DWORD), &result, 0);
 
-  UCHAR hashBuf[64] = { 0 };
+  UCHAR* hashBuf = (UCHAR*)malloc(hashLength);
   stat = BCryptHash(algHandle, NULL, 0, (UCHAR*)data, dataLength, hashBuf, hashLength);
+
+  BCryptCloseAlgorithmProvider(algHandle, 0);
 
   CHAR* hashedString = (CHAR*)malloc(hashLength * 2 + 1);
   for (int i = 0; i < hashLength; ++i) {
     ValToHex(hashedString + i * 2, hashBuf[i]);
   }
+  free((void*)hashBuf);
   hashedString[hashLength * 2] = 0;
   return hashedString;
 }
@@ -76,7 +79,7 @@ bool FindEntry(CHAR* firstEntry, CHAR* end, const CHAR* hash)
   if (firstEntry < end) {
     // Match!
     const CHAR* count = GetCount(firstEntry);
-    fprintf(stdout,"Found it! %s times used", count);
+    fprintf(stdout,"Found it! leaked %s times", count);
     free((void*)count);
     return true;
   }
@@ -117,7 +120,7 @@ int main(int argc, TCHAR* argv[])
 
   const CHAR* hash = CreateHash(password, strlen(password));
 
-  fprintf(stdout, "Checking Password \"%s\", With hash %s\n\n", password, hash);
+  fprintf(stdout, "Checking Password \"%s\" with hash %s\n\n", password, hash);
 
 
   SYSTEM_INFO sysInfo;
