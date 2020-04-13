@@ -66,14 +66,14 @@ CHAR* GetCount(CHAR* entry)
   return result;
 }
 
-bool FindEntry(CHAR* firstEntry, CHAR* end, CHAR* hash)
+bool FindEntry(CHAR* firstEntry, CHAR* end, const CHAR* hash)
 {
-  while (firstEntry + 64 <= end && strncmp(firstEntry, hash, 40) != 0) {
+  while (firstEntry < end && strncmp(firstEntry, hash, 40) != 0) {
     firstEntry += 40;
     while (*firstEntry != '\n') ++firstEntry;
     ++firstEntry;
   }
-  if (strncmp(firstEntry, hash, 40) == 0) {
+  if (firstEntry != end) {
     // Match!
     fprintf(stdout,"Found it! %s times used", GetCount(firstEntry));
     return true;
@@ -94,7 +94,7 @@ int main(int argc, TCHAR* argv[])
     password = argv[2];
   }
 
-  CHAR* hash = CreateHash(password, strlen(password));
+  const CHAR* hash = CreateHash(password, strlen(password));
   HANDLE fileHandle = CreateFileA(hibpPasswordsFile, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_FLAG_RANDOM_ACCESS, NULL);
 
   if (INVALID_HANDLE_VALUE == fileHandle) {
@@ -132,11 +132,13 @@ int main(int argc, TCHAR* argv[])
         while (*firstEntry != '\n') ++firstEntry;
         ++firstEntry;
       }
-      bool found = FindEntry(firstEntry, (CHAR*)base + MapRegionSize, hash);
-      if (found) {
-        UnmapViewOfFile(base);
-        return 0;
+      bool found = FindEntry(firstEntry, (CHAR*)base + MapRegionSize - 64, hash);
+      if (!found) {
+        fprintf(stdout, "Not found!");
       }
+      UnmapViewOfFile(base);
+      free((void*)hash);
+      return 0;
     }
     UnmapViewOfFile(base);
     offset += (MapRegionSize - sysInfo.dwAllocationGranularity);
@@ -154,10 +156,12 @@ int main(int argc, TCHAR* argv[])
     bool found = FindEntry((CHAR*)base, (CHAR*)base + fileSizeRemaining, hash);
     UnmapViewOfFile(base);
     if (found) {
+      free((void*)hash);
       return 0;
     }
   }
 
   fprintf(stdout,"Not found!");
+  free((void*)hash);
   return 0;
 }
