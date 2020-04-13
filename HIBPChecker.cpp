@@ -9,7 +9,7 @@
 
 #include <iostream>
 
-#define PASSWORD_TO_CHECK "password"
+#define PASSWORD_TO_CHECK "passeqwqwwweqwewword"
 #define PASSWORD_FILE "pwned-passwords-sha1-ordered-by-hash-v5.txt"
 
 const SIZE_T MapRegionSize = 128 * 1024 * 1024;
@@ -60,7 +60,7 @@ CHAR* GetCount(CHAR* entry)
   CHAR* entryEnd = entry;
   while (*entryEnd != '\r') entryEnd++;
   SIZE_T size = entryEnd - entry;
-  CHAR* result = (CHAR*)malloc(size);
+  CHAR* result = (CHAR*)malloc(size + 1);
   memcpy(result, entry, size);
   result[size] = 0;
   return result;
@@ -73,11 +73,14 @@ bool FindEntry(CHAR* firstEntry, CHAR* end, const CHAR* hash)
     while (*firstEntry != '\n') ++firstEntry;
     ++firstEntry;
   }
-  if (firstEntry != end) {
+  if (firstEntry < end) {
     // Match!
-    fprintf(stdout,"Found it! %s times used", GetCount(firstEntry));
+    const CHAR* count = GetCount(firstEntry);
+    fprintf(stdout,"Found it! %s times used", count);
+    free((void*)count);
     return true;
   }
+  fprintf(stdout, "Not found!");
   return false;
 }
 
@@ -94,23 +97,28 @@ int main(int argc, TCHAR* argv[])
     password = argv[2];
   }
 
-  const CHAR* hash = CreateHash(password, strlen(password));
   HANDLE fileHandle = CreateFileA(hibpPasswordsFile, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_FLAG_RANDOM_ACCESS, NULL);
-
   if (INVALID_HANDLE_VALUE == fileHandle) {
     fprintf(stderr,"Failed to open passwords file %s!",hibpPasswordsFile);
     return -1;
   }
 
-  fprintf(stdout,"Checking Password \"%s\", With hash %s\n\n", password, hash);
-
-
   DWORD fileSizeHigh = 0;
   DWORD fileSizeLow = GetFileSize(fileHandle, &fileSizeHigh);
-
   uint64_t fileSizeRemaining = (((uint64_t)fileSizeHigh) << 32) + fileSizeLow;
 
   HANDLE mappingHandle = CreateFileMappingA(fileHandle, NULL, PAGE_READONLY, 0, 0, "pwmapping");
+  if (INVALID_HANDLE_VALUE == mappingHandle)
+  {
+    fprintf(stderr, "Failed to create file mapping for %s!", hibpPasswordsFile);
+    CloseHandle(fileHandle);
+    return -1;
+  }
+
+  const CHAR* hash = CreateHash(password, strlen(password));
+
+  fprintf(stdout, "Checking Password \"%s\", With hash %s\n\n", password, hash);
+
 
   SYSTEM_INFO sysInfo;
   GetSystemInfo(&sysInfo);
@@ -132,13 +140,8 @@ int main(int argc, TCHAR* argv[])
         while (*firstEntry != '\n') ++firstEntry;
         ++firstEntry;
       }
-      bool found = FindEntry(firstEntry, (CHAR*)base + MapRegionSize - 64, hash);
-      if (!found) {
-        fprintf(stdout, "Not found!");
-      }
-      UnmapViewOfFile(base);
-      free((void*)hash);
-      return 0;
+      FindEntry(firstEntry, (CHAR*)base + MapRegionSize - 64, hash);
+      goto QUIT;
     }
     UnmapViewOfFile(base);
     offset += (MapRegionSize - sysInfo.dwAllocationGranularity);
@@ -155,13 +158,11 @@ int main(int argc, TCHAR* argv[])
   if (base = MapViewOfFile(mappingHandle, FILE_MAP_READ, high, low, 0)) {
     bool found = FindEntry((CHAR*)base, (CHAR*)base + fileSizeRemaining, hash);
     UnmapViewOfFile(base);
-    if (found) {
-      free((void*)hash);
-      return 0;
-    }
   }
 
-  fprintf(stdout,"Not found!");
+QUIT:
+  CloseHandle(mappingHandle);
+  CloseHandle(fileHandle);
   free((void*)hash);
   return 0;
 }
