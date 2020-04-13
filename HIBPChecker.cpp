@@ -75,7 +75,7 @@ bool FindEntry(CHAR* firstEntry, CHAR* end, CHAR* hash)
   }
   if (strncmp(firstEntry, hash, 40) == 0) {
     // Match!
-    printf("Found it! %s times used", GetCount(firstEntry));
+    fprintf(stdout,"Found it! %s times used", GetCount(firstEntry));
     return true;
   }
   return false;
@@ -83,15 +83,27 @@ bool FindEntry(CHAR* firstEntry, CHAR* end, CHAR* hash)
 
 int main(int argc, TCHAR* argv[])
 {
-  CHAR* hash = CreateHash(PASSWORD_TO_CHECK, strlen(PASSWORD_TO_CHECK));
+  const CHAR* password = PASSWORD_TO_CHECK;
+  const CHAR* hibpPasswordsFile = PASSWORD_FILE;
 
-  printf("Checking Password \"%s\", With hash %s\n\n", PASSWORD_TO_CHECK, hash);
+  if (argc == 2) {
+    password = argv[1];
+  }
+  if (argc >= 3) {
+    hibpPasswordsFile = argv[1];
+    password = argv[2];
+  }
 
-  HANDLE fileHandle = CreateFileA(PASSWORD_FILE, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_FLAG_RANDOM_ACCESS, NULL);
+  CHAR* hash = CreateHash(password, strlen(password));
+  HANDLE fileHandle = CreateFileA(hibpPasswordsFile, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_FLAG_RANDOM_ACCESS, NULL);
+
   if (INVALID_HANDLE_VALUE == fileHandle) {
-    printf("Failed to open passwords file!");
+    fprintf(stderr,"Failed to open passwords file %s!",hibpPasswordsFile);
     return -1;
   }
+
+  fprintf(stdout,"Checking Password \"%s\", With hash %s\n\n", password, hash);
+
 
   DWORD fileSizeHigh = 0;
   DWORD fileSizeLow = GetFileSize(fileHandle, &fileSizeHigh);
@@ -146,6 +158,6 @@ int main(int argc, TCHAR* argv[])
     }
   }
 
-  printf("Not found!");
+  fprintf(stdout,"Not found!");
   return 0;
 }
