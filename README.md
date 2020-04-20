@@ -7,6 +7,12 @@ Also useful as a simple example for how to memory map huge files on Windows, and
 
 No external dependencies apart from Windows SDK.
 
+## Building
+
+Build it with Visual Studio 2019 Community Edition, which can be downloaded here https://visualstudio.microsoft.com/downloads/
+
+No prebuilt binary available, since you shouldn't input your password into binaries built by someone else. Of course you should also inspect the source code first.
+
 ## Usage
 Currently only has a super simple command line interface:
 ```
